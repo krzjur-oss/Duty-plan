@@ -80,15 +80,14 @@ function addTeacher() {
     document.getElementById('teacher-name').value = '';
     document.getElementById('teacher-email').value = '';
     renderTeachers();
-    updateAssignmentSelects();
 }
 
 function deleteTeacherUI(id) {
     if (confirm('Czy na pewno chcesz usunąć tego nauczyciela?')) {
         deleteTeacher(id);
         renderTeachers();
-        updateAssignmentSelects();
         renderAssignments();
+        generateScheduleView();
     }
 }
 
@@ -137,15 +136,14 @@ function addBreak() {
     document.getElementById('break-start').value = '';
     document.getElementById('break-end').value = '';
     renderBreaks();
-    updateAssignmentSelects();
 }
 
 function deleteBreakUI(id) {
     if (confirm('Czy na pewno chcesz usunąć tę przerwę?')) {
         deleteBreak(id);
         renderBreaks();
-        updateAssignmentSelects();
         renderAssignments();
+        generateScheduleView();
     }
 }
 
@@ -189,59 +187,20 @@ function addLocation() {
     addLocationData(name);
     document.getElementById('location-name').value = '';
     renderLocations();
-    updateAssignmentSelects();
 }
 
 function deleteLocationUI(id) {
     if (confirm('Czy na pewno chcesz usunąć to miejsce?')) {
         deleteLocation(id);
         renderLocations();
-        updateAssignmentSelects();
         renderAssignments();
+        generateScheduleView();
     }
 }
 
 // ============================================
 // ASSIGNMENTS MANAGEMENT
 // ============================================
-
-function updateAssignmentSelects() {
-    const teacherSelect = document.getElementById('assignment-teacher');
-    const breakSelect = document.getElementById('assignment-break');
-    const locationSelect = document.getElementById('assignment-location');
-
-    teacherSelect.innerHTML = '<option value="">Wybierz nauczyciela</option>';
-    breakSelect.innerHTML = '<option value="">Wybierz przerwę</option>';
-    locationSelect.innerHTML = '<option value="">Wybierz miejsce</option>';
-
-    getTeachers().forEach(teacher => {
-        teacherSelect.innerHTML += `<option value="${teacher.id}">${teacher.name}</option>`;
-    });
-
-    getBreaks().forEach(breakItem => {
-        breakSelect.innerHTML += `<option value="${breakItem.id}">${breakItem.name} (${breakItem.startTime}-${breakItem.endTime})</option>`;
-    });
-
-    getLocations().forEach(location => {
-        locationSelect.innerHTML += `<option value="${location.id}">${location.name}</option>`;
-    });
-}
-
-function addAssignment() {
-    const teacherId = document.getElementById('assignment-teacher').value;
-    const breakId = document.getElementById('assignment-break').value;
-    const locationId = document.getElementById('assignment-location').value;
-
-    if (!teacherId || !breakId || !locationId) {
-        alert('Wybierz nauczyciela, przerwę i miejsce');
-        return;
-    }
-
-    addAssignmentData(teacherId, breakId, locationId);
-    updateAssignmentSelects();
-    renderAssignments();
-    checkAndDisplayConflicts();
-}
 
 function renderAssignments() {
     const assignments = getAssignments();
@@ -268,13 +227,15 @@ function renderAssignments() {
         `;
         container.appendChild(item);
     });
+
+    checkAndDisplayConflicts();
 }
 
 function deleteAssignmentUI(id) {
     if (confirm('Czy na pewno chcesz usunąć ten dyżur?')) {
         deleteAssignment(id);
         renderAssignments();
-        checkAndDisplayConflicts();
+        generateScheduleView();
     }
 }
 
@@ -296,20 +257,22 @@ function checkAndDisplayConflicts() {
 }
 
 // ============================================
-// SCHEDULE VIEW - GRID TABLE
+// DRAG & DROP STATE
+// ============================================
+
+let draggedData = null;
+
+// ============================================
+// SCHEDULE VIEW - INTERACTIVE GRID TABLE
 // ============================================
 
 function generateScheduleView() {
     const assignments = getAssignments();
     const breaks = getBreaks();
     const locations = getLocations();
+    const teachers = getTeachers();
     const container = document.getElementById('schedule-view');
     container.innerHTML = '';
-
-    if (assignments.length === 0) {
-        container.innerHTML = '<p class="placeholder">Brak dyżurów do wyświetlenia.</p>';
-        return;
-    }
 
     if (breaks.length === 0 || locations.length === 0) {
         container.innerHTML = '<p class="placeholder">Dodaj przerwy i miejsca przed wyświetleniem harmonogramu.</p>';
@@ -347,11 +310,29 @@ function generateScheduleView() {
             );
             
             if (assignment) {
-                html += `<td class="schedule-cell-filled">
-                    <div class="schedule-teacher">👨‍🏫 ${assignment.teacherName}</div>
+                html += `<td class="schedule-cell-filled" 
+                    draggable="true"
+                    data-assignment-id="${assignment.id}"
+                    data-break-id="${breakItem.id}"
+                    data-location-id="${location.id}"
+                    data-teacher-id="${assignment.teacherId}"
+                    ondragstart="onDragStart(event)"
+                    ondragover="onDragOver(event)"
+                    ondrop="onDrop(event)"
+                    ondragend="onDragEnd(event)"
+                    onclick="openEditModal(${breakItem.id}, ${location.id}, '${assignment.teacherName}', ${assignment.id})">
+                    <div class="schedule-teacher" style="cursor: grab;">✋ ${assignment.teacherName}</div>
+                    <small class="edit-hint">Przeciągnij lub kliknij</small>
                 </td>`;
             } else {
-                html += `<td class="schedule-cell-empty"></td>`;
+                html += `<td class="schedule-cell-empty" 
+                    ondragover="onDragOver(event)"
+                    ondrop="onDrop(event)"
+                    data-break-id="${breakItem.id}"
+                    data-location-id="${location.id}"
+                    onclick="openEditModal(${breakItem.id}, ${location.id}, '', null)">
+                    <div class="schedule-empty-hint">+ Dodaj nauczyciela</div>
+                </td>`;
             }
         });
         
@@ -363,12 +344,191 @@ function generateScheduleView() {
     tableWrapper.innerHTML = html;
     container.appendChild(tableWrapper);
 
-    // Add export button
-    const exportBtn = document.createElement('button');
-    exportBtn.className = 'btn-secondary';
-    exportBtn.textContent = '🖨️ Drukuj harmonogram';
-    exportBtn.onclick = () => window.print();
-    container.appendChild(exportBtn);
+    // Add buttons row
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.className = 'schedule-buttons';
+    buttonsDiv.innerHTML = `
+        <button class="btn-secondary" onclick="generateScheduleView()">🔄 Odśwież harmonogram</button>
+        <button class="btn-secondary" onclick="window.print()">🖨️ Drukuj harmonogram</button>
+    `;
+    container.appendChild(buttonsDiv);
+}
+
+// ============================================
+// DRAG & DROP HANDLERS
+// ============================================
+
+function onDragStart(event) {
+    const cell = event.target.closest('td');
+    draggedData = {
+        assignmentId: cell.dataset.assignmentId,
+        teacherId: cell.dataset.teacherId,
+        breakId: cell.dataset.breakId,
+        locationId: cell.dataset.locationId,
+        teacherName: cell.querySelector('.schedule-teacher').textContent.trim()
+    };
+    
+    cell.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', draggedData.teacherName);
+}
+
+function onDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    
+    const cell = event.target.closest('td');
+    if (cell && !cell.classList.contains('schedule-break-time')) {
+        cell.classList.add('drag-over');
+    }
+}
+
+function onDragEnd(event) {
+    const cell = event.target.closest('td');
+    if (cell) {
+        cell.classList.remove('dragging');
+    }
+    
+    document.querySelectorAll('.drag-over').forEach(el => {
+        el.classList.remove('drag-over');
+    });
+    
+    draggedData = null;
+}
+
+function onDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const targetCell = event.target.closest('td');
+    
+    if (!targetCell || targetCell.classList.contains('schedule-break-time')) {
+        return;
+    }
+    
+    if (!draggedData) {
+        return;
+    }
+
+    const targetBreakId = parseInt(targetCell.dataset.breakId);
+    const targetLocationId = parseInt(targetCell.dataset.locationId);
+    
+    // Nie przeciągamy na to samo miejsce
+    if (draggedData.breakId == targetBreakId && draggedData.locationId == targetLocationId) {
+        targetCell.classList.remove('drag-over');
+        return;
+    }
+
+    // Usuń stare przypisanie
+    if (draggedData.assignmentId) {
+        deleteAssignment(draggedData.assignmentId);
+    }
+
+    // Sprawdź konflikt
+    const existingAssignment = getAssignments().find(a => 
+        a.breakId == targetBreakId && 
+        a.locationId == targetLocationId
+    );
+
+    if (existingAssignment) {
+        if (confirm(`To miejsce jest już zajęte przez ${existingAssignment.teacherName}. Zamienić dyżury?`)) {
+            deleteAssignment(existingAssignment.id);
+            addAssignmentData(draggedData.teacherId, targetBreakId, targetLocationId);
+            addAssignmentData(existingAssignment.teacherId, draggedData.breakId, draggedData.locationId);
+        } else {
+            // Przywróć stare przypisanie
+            addAssignmentData(draggedData.teacherId, draggedData.breakId, draggedData.locationId);
+        }
+    } else {
+        // Po prostu przenieś
+        addAssignmentData(draggedData.teacherId, targetBreakId, targetLocationId);
+    }
+
+    targetCell.classList.remove('drag-over');
+    renderAssignments();
+    generateScheduleView();
+}
+
+// ============================================
+// MODAL FOR EDITING ASSIGNMENTS
+// ============================================
+
+function openEditModal(breakId, locationId, currentTeacher, assignmentId) {
+    const teachers = getTeachers();
+    const breaks = getBreaks();
+    const locations = getLocations();
+    
+    const breakItem = breaks.find(b => b.id == breakId);
+    const location = locations.find(l => l.id == locationId);
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'editModal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Przypisz nauczyciela</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Przerwę:</strong> ${breakItem ? breakItem.name + ' (' + breakItem.startTime + '-' + breakItem.endTime + ')' : 'Nieznana'}</p>
+                <p><strong>Miejsce:</strong> ${location ? location.name : 'Nieznane'}</p>
+                <p><strong>Nauczyciel:</strong></p>
+                <select id="modalTeacherSelect" class="modal-select">
+                    <option value="">-- Brak (usuń dyżur) --</option>
+                    ${teachers.map(t => `<option value="${t.id}" ${currentTeacher === t.name ? 'selected' : ''}>${t.name}</option>`).join('')}
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">Anuluj</button>
+                <button class="btn-primary" onclick="saveAssignmentFromModal(${breakId}, ${locationId}, ${assignmentId})">Zapisz</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+
+    // Close modal on background click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+
+    // Close on ESC key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
+}
+
+function closeModal() {
+    const modal = document.getElementById('editModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function saveAssignmentFromModal(breakId, locationId, assignmentId) {
+    const teacherSelect = document.getElementById('modalTeacherSelect');
+    const selectedTeacherId = teacherSelect.value;
+
+    // Delete old assignment if exists
+    if (assignmentId !== null) {
+        deleteAssignment(assignmentId);
+    }
+
+    // Add new assignment if teacher selected
+    if (selectedTeacherId) {
+        addAssignmentData(selectedTeacherId, breakId, locationId);
+    }
+
+    closeModal();
+    renderAssignments();
+    generateScheduleView();
 }
 
 // ============================================
@@ -404,8 +564,7 @@ function importData() {
             renderBreaks();
             renderLocations();
             renderAssignments();
-            updateAssignmentSelects();
-            checkAndDisplayConflicts();
+            generateScheduleView();
         } else {
             showStatus('error', result.message);
         }
@@ -432,7 +591,7 @@ function clearAllData() {
         renderBreaks();
         renderLocations();
         renderAssignments();
-        updateAssignmentSelects();
+        generateScheduleView();
         showStatus('success', 'Wszystkie dane zostały wyczyszczone');
     }
 }
@@ -468,6 +627,5 @@ window.addEventListener('DOMContentLoaded', () => {
     renderBreaks();
     renderLocations();
     renderAssignments();
-    updateAssignmentSelects();
-    checkAndDisplayConflicts();
+    generateScheduleView();
 });

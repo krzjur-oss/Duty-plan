@@ -220,6 +220,7 @@ function renderAssignments() {
                 <div class="list-item-title">👨‍🏫 ${assignment.teacherName}</div>
                 <div class="list-item-subtitle">⏰ ${assignment.breakName}</div>
                 <div class="list-item-subtitle">📍 ${assignment.locationName}</div>
+                ${assignment.day ? `<div class="list-item-subtitle">📅 ${getDayName(assignment.day)}</div>` : ''}
             </div>
             <div class="list-item-actions">
                 <button class="btn-delete" onclick="deleteAssignmentUI(${assignment.id})">🗑️ Usuń</button>
@@ -263,6 +264,28 @@ function checkAndDisplayConflicts() {
 let draggedData = null;
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+const DAYS = {
+    'monday': 'Poniedziałek',
+    'tuesday': 'Wtorek',
+    'wednesday': 'Środa',
+    'thursday': 'Czwartek',
+    'friday': 'Piątek',
+    'all': 'Cały tydzień'
+};
+
+function getDayName(day) {
+    return DAYS[day] || day;
+}
+
+function getSelectedDay() {
+    const select = document.getElementById('schedule-week-select');
+    return select ? select.value : 'monday';
+}
+
+// ============================================
 // SCHEDULE VIEW - INTERACTIVE GRID TABLE
 // ============================================
 
@@ -272,6 +295,7 @@ function generateScheduleView() {
     const locations = getLocations();
     const teachers = getTeachers();
     const container = document.getElementById('schedule-view');
+    const selectedDay = getSelectedDay();
     container.innerHTML = '';
 
     if (breaks.length === 0 || locations.length === 0) {
@@ -279,12 +303,46 @@ function generateScheduleView() {
         return;
     }
 
+    // Filter assignments by selected day
+    const filteredAssignments = assignments.filter(a => {
+        if (selectedDay === 'all') return true;
+        return a.day === selectedDay || !a.day;
+    });
+
+    // Determine if showing all days or single day
+    const isAllDays = selectedDay === 'all';
+
+    if (isAllDays) {
+        // Show tables for each day
+        Object.keys(DAYS).forEach(day => {
+            if (day === 'all') return;
+            
+            const dayAssignments = assignments.filter(a => a.day === day || !a.day);
+            renderSingleDayTable(container, day, dayAssignments, breaks, locations);
+        });
+    } else {
+        // Show single day table
+        renderSingleDayTable(container, selectedDay, filteredAssignments, breaks, locations);
+    }
+
+    // Add buttons row
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.className = 'schedule-buttons';
+    buttonsDiv.innerHTML = `
+        <button class="btn-secondary" onclick="generateScheduleView()">🔄 Odśwież harmonogram</button>
+        <button class="btn-secondary" onclick="window.print()">🖨️ Drukuj harmonogram</button>
+    `;
+    container.appendChild(buttonsDiv);
+}
+
+function renderSingleDayTable(container, day, assignments, breaks, locations) {
     // Create wrapper for table
     const tableWrapper = document.createElement('div');
     tableWrapper.className = 'schedule-table-wrapper';
 
     // Create HTML table
-    let html = '<table class="schedule-table">';
+    let html = `<div class="schedule-day-header">📅 ${getDayName(day)}</div>`;
+    html += '<table class="schedule-table">';
     
     // Header row - locations
     html += '<thead><tr>';
@@ -306,7 +364,8 @@ function generateScheduleView() {
         locations.forEach(location => {
             const assignment = assignments.find(a => 
                 a.breakId == breakItem.id && 
-                a.locationId == location.id
+                a.locationId == location.id &&
+                (a.day === day || !a.day)
             );
             
             if (assignment) {
@@ -316,11 +375,12 @@ function generateScheduleView() {
                     data-break-id="${breakItem.id}"
                     data-location-id="${location.id}"
                     data-teacher-id="${assignment.teacherId}"
+                    data-day="${day}"
                     ondragstart="onDragStart(event)"
                     ondragover="onDragOver(event)"
                     ondrop="onDrop(event)"
                     ondragend="onDragEnd(event)"
-                    onclick="openEditModal(${breakItem.id}, ${location.id}, '${assignment.teacherName}', ${assignment.id})">
+                    onclick="openEditModal(${breakItem.id}, ${location.id}, '${assignment.teacherName}', ${assignment.id}, '${day}')">
                     <div class="schedule-teacher" style="cursor: grab;">✋ ${assignment.teacherName}</div>
                     <small class="edit-hint">Przeciągnij lub kliknij</small>
                 </td>`;
@@ -330,7 +390,8 @@ function generateScheduleView() {
                     ondrop="onDrop(event)"
                     data-break-id="${breakItem.id}"
                     data-location-id="${location.id}"
-                    onclick="openEditModal(${breakItem.id}, ${location.id}, '', null)">
+                    data-day="${day}"
+                    onclick="openEditModal(${breakItem.id}, ${location.id}, '', null, '${day}')">
                     <div class="schedule-empty-hint">+ Dodaj nauczyciela</div>
                 </td>`;
             }
@@ -343,15 +404,6 @@ function generateScheduleView() {
 
     tableWrapper.innerHTML = html;
     container.appendChild(tableWrapper);
-
-    // Add buttons row
-    const buttonsDiv = document.createElement('div');
-    buttonsDiv.className = 'schedule-buttons';
-    buttonsDiv.innerHTML = `
-        <button class="btn-secondary" onclick="generateScheduleView()">🔄 Odśwież harmonogram</button>
-        <button class="btn-secondary" onclick="window.print()">🖨️ Drukuj harmonogram</button>
-    `;
-    container.appendChild(buttonsDiv);
 }
 
 // ============================================
@@ -365,6 +417,7 @@ function onDragStart(event) {
         teacherId: cell.dataset.teacherId,
         breakId: cell.dataset.breakId,
         locationId: cell.dataset.locationId,
+        day: cell.dataset.day,
         teacherName: cell.querySelector('.schedule-teacher').textContent.trim()
     };
     
@@ -412,9 +465,12 @@ function onDrop(event) {
 
     const targetBreakId = parseInt(targetCell.dataset.breakId);
     const targetLocationId = parseInt(targetCell.dataset.locationId);
+    const targetDay = targetCell.dataset.day;
     
     // Nie przeciągamy na to samo miejsce
-    if (draggedData.breakId == targetBreakId && draggedData.locationId == targetLocationId) {
+    if (draggedData.breakId == targetBreakId && 
+        draggedData.locationId == targetLocationId && 
+        draggedData.day === targetDay) {
         targetCell.classList.remove('drag-over');
         return;
     }
@@ -427,21 +483,22 @@ function onDrop(event) {
     // Sprawdź konflikt
     const existingAssignment = getAssignments().find(a => 
         a.breakId == targetBreakId && 
-        a.locationId == targetLocationId
+        a.locationId == targetLocationId &&
+        (a.day === targetDay || !a.day)
     );
 
     if (existingAssignment) {
         if (confirm(`To miejsce jest już zajęte przez ${existingAssignment.teacherName}. Zamienić dyżury?`)) {
             deleteAssignment(existingAssignment.id);
-            addAssignmentData(draggedData.teacherId, targetBreakId, targetLocationId);
-            addAssignmentData(existingAssignment.teacherId, draggedData.breakId, draggedData.locationId);
+            addAssignmentDataWithDay(draggedData.teacherId, targetBreakId, targetLocationId, targetDay);
+            addAssignmentDataWithDay(existingAssignment.teacherId, draggedData.breakId, draggedData.locationId, draggedData.day);
         } else {
             // Przywróć stare przypisanie
-            addAssignmentData(draggedData.teacherId, draggedData.breakId, draggedData.locationId);
+            addAssignmentDataWithDay(draggedData.teacherId, draggedData.breakId, draggedData.locationId, draggedData.day);
         }
     } else {
         // Po prostu przenieś
-        addAssignmentData(draggedData.teacherId, targetBreakId, targetLocationId);
+        addAssignmentDataWithDay(draggedData.teacherId, targetBreakId, targetLocationId, targetDay);
     }
 
     targetCell.classList.remove('drag-over');
@@ -453,7 +510,7 @@ function onDrop(event) {
 // MODAL FOR EDITING ASSIGNMENTS
 // ============================================
 
-function openEditModal(breakId, locationId, currentTeacher, assignmentId) {
+function openEditModal(breakId, locationId, currentTeacher, assignmentId, day = 'monday') {
     const teachers = getTeachers();
     const breaks = getBreaks();
     const locations = getLocations();
@@ -472,6 +529,7 @@ function openEditModal(breakId, locationId, currentTeacher, assignmentId) {
                 <button class="modal-close" onclick="closeModal()">✕</button>
             </div>
             <div class="modal-body">
+                <p><strong>Dzień:</strong> ${getDayName(day)}</p>
                 <p><strong>Przerwę:</strong> ${breakItem ? breakItem.name + ' (' + breakItem.startTime + '-' + breakItem.endTime + ')' : 'Nieznana'}</p>
                 <p><strong>Miejsce:</strong> ${location ? location.name : 'Nieznane'}</p>
                 <p><strong>Nauczyciel:</strong></p>
@@ -482,7 +540,7 @@ function openEditModal(breakId, locationId, currentTeacher, assignmentId) {
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal()">Anuluj</button>
-                <button class="btn-primary" onclick="saveAssignmentFromModal(${breakId}, ${locationId}, ${assignmentId})">Zapisz</button>
+                <button class="btn-primary" onclick="saveAssignmentFromModal(${breakId}, ${locationId}, ${assignmentId}, '${day}')">Zapisz</button>
             </div>
         </div>
     `;
@@ -512,7 +570,7 @@ function closeModal() {
     }
 }
 
-function saveAssignmentFromModal(breakId, locationId, assignmentId) {
+function saveAssignmentFromModal(breakId, locationId, assignmentId, day) {
     const teacherSelect = document.getElementById('modalTeacherSelect');
     const selectedTeacherId = teacherSelect.value;
 
@@ -523,7 +581,7 @@ function saveAssignmentFromModal(breakId, locationId, assignmentId) {
 
     // Add new assignment if teacher selected
     if (selectedTeacherId) {
-        addAssignmentData(selectedTeacherId, breakId, locationId);
+        addAssignmentDataWithDay(selectedTeacherId, breakId, locationId, day);
     }
 
     closeModal();

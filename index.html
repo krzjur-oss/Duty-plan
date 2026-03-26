@@ -65,18 +65,6 @@
         <!-- DYŻURY -->
         <section id="assignments" class="tab-content">
             <h2>Przypisywanie Dyżurów</h2>
-            <div class="form-group">
-                <select id="assignment-teacher">
-                    <option value="">Wybierz nauczyciela</option>
-                </select>
-                <select id="assignment-break">
-                    <option value="">Wybierz przerwę</option>
-                </select>
-                <select id="assignment-location">
-                    <option value="">Wybierz miejsce</option>
-                </select>
-                <button class="btn-primary" onclick="addAssignment()">➕ Przypisz dyżur</button>
-            </div>
             <div id="conflicts-alert" class="alert-warning" style="display: none;"></div>
             <div id="assignments-list" class="list-container"></div>
         </section>
@@ -84,7 +72,21 @@
         <!-- HARMONOGRAM -->
         <section id="schedule" class="tab-content">
             <h2>Harmonogram Dyżurów</h2>
-            <button class="btn-secondary" onclick="generateScheduleView()">🔄 Odśwież harmonogram</button>
+            
+            <div class="schedule-controls">
+                <div class="form-group">
+                    <label for="schedule-week-select">Wybierz dzień:</label>
+                    <select id="schedule-week-select" onchange="generateScheduleView()">
+                        <option value="monday">Poniedziałek</option>
+                        <option value="tuesday">Wtorek</option>
+                        <option value="wednesday">Środa</option>
+                        <option value="thursday">Czwartek</option>
+                        <option value="friday">Piątek</option>
+                        <option value="all">Cały tydzień</option>
+                    </select>
+                </div>
+            </div>
+            
             <div id="schedule-view" class="schedule-grid"></div>
         </section>
 

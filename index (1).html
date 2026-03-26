@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#3498db">
+    <meta name="description" content="Aplikacja PWA do planowania dyżurów między lekcjami">
+    <title>Duty Plan - Planowanie Dyżurów</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%233498db' width='192' height='192'/><text x='50%' y='50%' font-size='120' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>D</text></svg>">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1>📅 Duty Plan</h1>
+                <p class="subtitle">Planowanie dyżurów między lekcjami</p>
+            </div>
+            <button id="dark-mode-toggle" class="btn-icon" title="Dark Mode">🌙</button>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="teachers">👨‍🏫 Nauczyciele</button>
+            <button class="tab-btn" data-tab="breaks">⏰ Przerwy</button>
+            <button class="tab-btn" data-tab="locations">📍 Miejsca</button>
+            <button class="tab-btn" data-tab="assignments">📋 Dyżury</button>
+            <button class="tab-btn" data-tab="schedule">📊 Harmonogram</button>
+            <button class="tab-btn" data-tab="data">💾 Import/Export</button>
+        </nav>
+
+        <!-- NAUCZYCIELE -->
+        <section id="teachers" class="tab-content active">
+            <h2>Zarządzanie Nauczycielami</h2>
+            <div class="form-group">
+                <input type="text" id="teacher-name" placeholder="Imię i nazwisko nauczyciela">
+                <input type="email" id="teacher-email" placeholder="Email (opcjonalnie)">
+                <button class="btn-primary" onclick="addTeacher()">➕ Dodaj nauczyciela</button>
+            </div>
+            <div id="teachers-list" class="list-container"></div>
+        </section>
+
+        <!-- PRZERWY -->
+        <section id="breaks" class="tab-content">
+            <h2>Definiowanie Przerw</h2>
+            <div class="form-group">
+                <input type="text" id="break-name" placeholder="Nazwa przerwy (np. Przerwę 1)">
+                <input type="time" id="break-start">
+                <input type="time" id="break-end">
+                <button class="btn-primary" onclick="addBreak()">➕ Dodaj przerwę</button>
+            </div>
+            <div id="breaks-list" class="list-container"></div>
+        </section>
+
+        <!-- MIEJSCA -->
+        <section id="locations" class="tab-content">
+            <h2>Miejsca Dyżurów</h2>
+            <div class="form-group">
+                <input type="text" id="location-name" placeholder="Nazwa miejsca (np. Hol, Szatnia)">
+                <button class="btn-primary" onclick="addLocation()">➕ Dodaj miejsce</button>
+            </div>
+            <div id="locations-list" class="list-container"></div>
+        </section>
+
+        <!-- DYŻURY -->
+        <section id="assignments" class="tab-content">
+            <h2>Przypisywanie Dyżurów</h2>
+            <div class="form-group">
+                <select id="assignment-teacher">
+                    <option value="">Wybierz nauczyciela</option>
+                </select>
+                <select id="assignment-break">
+                    <option value="">Wybierz przerwę</option>
+                </select>
+                <select id="assignment-location">
+                    <option value="">Wybierz miejsce</option>
+                </select>
+                <button class="btn-primary" onclick="addAssignment()">➕ Przypisz dyżur</button>
+            </div>
+            <div id="conflicts-alert" class="alert-warning" style="display: none;"></div>
+            <div id="assignments-list" class="list-container"></div>
+        </section>
+
+        <!-- HARMONOGRAM -->
+        <section id="schedule" class="tab-content">
+            <h2>Harmonogram Dyżurów</h2>
+            <button class="btn-secondary" onclick="generateScheduleView()">🔄 Odśwież harmonogram</button>
+            <div id="schedule-view" class="schedule-grid"></div>
+        </section>
+
+        <!-- IMPORT/EXPORT -->
+        <section id="data" class="tab-content">
+            <h2>Zarządzanie Danymi</h2>
+            <div class="form-group">
+                <button class="btn-primary" onclick="exportData()">📥 Eksportuj do JSON</button>
+                <button class="btn-secondary" onclick="document.getElementById('import-file').click()">📤 Importuj z JSON</button>
+                <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData()">
+            </div>
+            <div class="form-group">
+                <button class="btn-danger" onclick="clearAllData()">🗑️ Wyczyść wszystkie dane</button>
+            </div>
+            <div id="data-status" class="status-message"></div>
+        </section>
+    </div>
+
+    <footer class="footer">
+        <p>Duty Plan © 2026 | Aplikacja PWA do planowania dyżurów</p>
+        <p id="install-prompt" style="display: none;">
+            <button onclick="installApp()" class="btn-secondary">⬇️ Zainstaluj aplikację</button>
+        </p>
+    </footer>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(e => console.log('SW registration failed:', e));
+        }
+    </script>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

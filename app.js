@@ -514,7 +514,8 @@ function openEditModal(breakId, locationId, currentTeacher, assignmentId, day = 
     const teachers = getTeachers();
     const breaks = getBreaks();
     const locations = getLocations();
-    
+    const sortedTeachers = teachers.slice().sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+
     const breakItem = breaks.find(b => b.id == breakId);
     const location = locations.find(l => l.id == locationId);
 
@@ -535,7 +536,7 @@ function openEditModal(breakId, locationId, currentTeacher, assignmentId, day = 
                 <p><strong>Nauczyciel:</strong></p>
                 <select id="modalTeacherSelect" class="modal-select">
                     <option value="">-- Brak (usuń dyżur) --</option>
-                    ${teachers.map(t => `<option value="${t.id}" ${currentTeacher === t.name ? 'selected' : ''}>${t.name}</option>`).join('')}
+                    ${sortedTeachers.map(t => `<option value="${t.id}" ${currentTeacher === t.name ? 'selected' : ''}>${t.name}</option>`).join('')}
                 </select>
             </div>
             <div class="modal-footer">

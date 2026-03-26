@@ -40,6 +40,10 @@ html, body {
     flex-direction: column;
 }
 
+/* ============================================
+   HEADER
+   ============================================ */
+
 .header {
     display: flex;
     justify-content: space-between;
@@ -76,6 +80,10 @@ html, body {
     color: white;
 }
 
+/* ============================================
+   TABS
+   ============================================ */
+
 .tabs {
     display: flex;
     gap: 10px;
@@ -106,6 +114,10 @@ html, body {
     border-bottom-color: var(--primary);
 }
 
+/* ============================================
+   TAB CONTENT
+   ============================================ */
+
 .tab-content {
     display: none;
     animation: fadeIn 0.3s;
@@ -124,6 +136,10 @@ html, body {
     margin-bottom: 20px;
     color: var(--primary);
 }
+
+/* ============================================
+   FORMS
+   ============================================ */
 
 .form-group {
     display: flex;
@@ -149,6 +165,10 @@ input:focus, select:focus, textarea:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
+
+/* ============================================
+   BUTTONS
+   ============================================ */
 
 .btn-primary, .btn-secondary, .btn-danger {
     padding: 12px 24px;
@@ -190,6 +210,10 @@ input:focus, select:focus, textarea:focus {
 .btn-danger:hover {
     background-color: #c0392b;
 }
+
+/* ============================================
+   LISTS
+   ============================================ */
 
 .list-container {
     display: grid;
@@ -245,6 +269,10 @@ input:focus, select:focus, textarea:focus {
     background-color: #c0392b;
 }
 
+/* ============================================
+   ALERTS
+   ============================================ */
+
 .alert-warning {
     background-color: rgba(243, 156, 18, 0.1);
     border-left: 4px solid var(--warning);
@@ -252,6 +280,12 @@ input:focus, select:focus, textarea:focus {
     border-radius: 6px;
     margin-bottom: 20px;
     color: var(--warning);
+}
+
+.alert-success {
+    background-color: rgba(46, 204, 113, 0.1);
+    border-left: 4px solid var(--secondary);
+    color: var(--secondary);
 }
 
 .status-message {
@@ -273,35 +307,108 @@ input:focus, select:focus, textarea:focus {
     color: var(--danger);
 }
 
-.schedule-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
+/* ============================================
+   SCHEDULE TABLE GRID
+   ============================================ */
+
+.schedule-table-wrapper {
+    overflow-x: auto;
+    margin-bottom: 20px;
     margin-top: 20px;
-}
-
-.schedule-card {
-    background-color: rgba(52, 152, 219, 0.05);
-    border: 1px solid var(--border);
     border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--bg);
+    font-size: 0.95em;
+}
+
+.schedule-table thead {
+    background: linear-gradient(135deg, var(--primary) 0%, #2980b9 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.schedule-table th {
     padding: 15px;
-    transition: all 0.3s;
+    text-align: center;
+    font-weight: 600;
+    border: 1px solid var(--primary);
+    transition: background-color 0.3s;
 }
 
-.schedule-card:hover {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+.schedule-table th:first-child {
+    text-align: left;
+    min-width: 120px;
 }
 
-.schedule-card-header {
+.schedule-table th:hover {
+    background-color: #2980b9;
+}
+
+.schedule-table td {
+    padding: 12px 15px;
+    border: 1px solid var(--border);
+    text-align: center;
+    vertical-align: middle;
+    min-height: 70px;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.schedule-break-time {
+    font-weight: 600;
+    background-color: rgba(52, 152, 219, 0.05);
+    text-align: left;
+    border-right: 2px solid var(--primary);
+    min-width: 120px;
+}
+
+.schedule-break-time small {
+    display: block;
+    color: var(--gray);
+    font-weight: normal;
+    font-size: 0.8em;
+    margin-top: 5px;
+}
+
+.schedule-cell-filled {
+    background-color: rgba(46, 204, 113, 0.1);
+    border: 2px solid var(--secondary);
+    cursor: default;
+}
+
+.schedule-cell-empty {
+    background-color: rgba(149, 165, 166, 0.05);
+}
+
+.schedule-teacher {
     font-weight: 600;
     color: var(--primary);
-    margin-bottom: 10px;
+    padding: 10px;
+    background-color: rgba(52, 152, 219, 0.1);
+    border-radius: 6px;
+    display: inline-block;
+    white-space: nowrap;
 }
 
-.schedule-card-content {
-    font-size: 0.9em;
-    line-height: 1.6;
+/* Hover effects */
+.schedule-table tbody tr:hover .schedule-cell-filled {
+    background-color: rgba(46, 204, 113, 0.2);
+    transform: scale(1.05);
 }
+
+.schedule-table tbody tr:hover .schedule-cell-empty {
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
 
 .footer {
     margin-top: auto;
@@ -312,6 +419,62 @@ input:focus, select:focus, textarea:focus {
     font-size: 0.9em;
 }
 
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+    .schedule-table-wrapper {
+        box-shadow: none;
+        border: 2px solid #000;
+        page-break-inside: avoid;
+    }
+
+    .schedule-table {
+        page-break-inside: avoid;
+    }
+
+    .schedule-table th {
+        background: #333 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .schedule-table td {
+        padding: 10px;
+        border: 1px solid #000;
+    }
+
+    .schedule-break-time {
+        background-color: #f0f0f0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .schedule-cell-filled {
+        background-color: #e8f5e9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    button {
+        display: none !important;
+    }
+
+    .container {
+        padding: 0;
+    }
+
+    header, .tabs, nav {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   RESPONSIVE MOBILE
+   ============================================ */
+
 @media (max-width: 768px) {
     .header {
         flex-direction: column;
@@ -321,6 +484,15 @@ input:focus, select:focus, textarea:focus {
 
     .header-content h1 {
         font-size: 1.8em;
+    }
+
+    .tabs {
+        gap: 5px;
+    }
+
+    .tab-btn {
+        padding: 10px 15px;
+        font-size: 0.9em;
     }
 
     .form-group {
@@ -336,4 +508,79 @@ input:focus, select:focus, textarea:focus {
         align-items: flex-start;
         gap: 10px;
     }
+
+    .list-item-actions {
+        width: 100%;
+    }
+
+    .schedule-table-wrapper {
+        font-size: 0.85em;
+        border-radius: 0;
+    }
+
+    .schedule-table th,
+    .schedule-table td {
+        padding: 8px 10px;
+        min-height: 60px;
+    }
+
+    .schedule-teacher {
+        font-size: 0.85em;
+        padding: 6px;
+    }
+
+    .schedule-break-time small {
+        font-size: 0.7em;
+    }
+
+    .schedule-table th:first-child,
+    .schedule-break-time {
+        min-width: 90px;
+    }
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+body.dark-mode .list-item {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+body.dark-mode input,
+body.dark-mode select {
+    background-color: #333;
+    border-color: #555;
+}
+
+body.dark-mode .schedule-table {
+    background-color: #222;
+}
+
+body.dark-mode .schedule-table th {
+    background: linear-gradient(135deg, #2980b9 0%, #1e5a8e 100%) !important;
+}
+
+body.dark-mode .schedule-break-time {
+    background-color: rgba(52, 152, 219, 0.15);
+}
+
+body.dark-mode .schedule-cell-filled {
+    background-color: rgba(46, 204, 113, 0.15);
+}
+
+body.dark-mode .schedule-cell-empty {
+    background-color: rgba(149, 165, 166, 0.08);
+}
+
+body.dark-mode .schedule-teacher {
+    background-color: rgba(52, 152, 219, 0.15);
+    color: #64b5f6;
+}
+
+.placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--gray);
+    font-style: italic;
 }

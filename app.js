@@ -1,3 +1,7 @@
+// ============================================
+// TAB NAVIGATION
+// ============================================
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const tabName = btn.dataset.tab;
@@ -14,6 +18,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     });
 });
 
+// ============================================
+// DARK MODE TOGGLE
+// ============================================
+
 const darkModeToggle = document.getElementById('dark-mode-toggle');
 const isDarkMode = localStorage.getItem('darkMode') === 'true';
 
@@ -28,6 +36,10 @@ darkModeToggle.addEventListener('click', () => {
     localStorage.setItem('darkMode', isDark);
     darkModeToggle.textContent = isDark ? '☀️' : '🌙';
 });
+
+// ============================================
+// TEACHERS MANAGEMENT
+// ============================================
 
 function renderTeachers() {
     const teachers = getTeachers();
@@ -79,6 +91,10 @@ function deleteTeacherUI(id) {
         renderAssignments();
     }
 }
+
+// ============================================
+// BREAKS MANAGEMENT
+// ============================================
 
 function renderBreaks() {
     const breaks = getBreaks();
@@ -133,6 +149,10 @@ function deleteBreakUI(id) {
     }
 }
 
+// ============================================
+// LOCATIONS MANAGEMENT
+// ============================================
+
 function renderLocations() {
     const locations = getLocations();
     const container = document.getElementById('locations-list');
@@ -180,6 +200,10 @@ function deleteLocationUI(id) {
         renderAssignments();
     }
 }
+
+// ============================================
+// ASSIGNMENTS MANAGEMENT
+// ============================================
 
 function updateAssignmentSelects() {
     const teacherSelect = document.getElementById('assignment-teacher');
@@ -254,6 +278,10 @@ function deleteAssignmentUI(id) {
     }
 }
 
+// ============================================
+// CONFLICT DETECTION
+// ============================================
+
 function checkAndDisplayConflicts() {
     const conflicts = checkConflicts();
     const alertDiv = document.getElementById('conflicts-alert');
@@ -267,9 +295,14 @@ function checkAndDisplayConflicts() {
     }
 }
 
+// ============================================
+// SCHEDULE VIEW - GRID TABLE
+// ============================================
+
 function generateScheduleView() {
     const assignments = getAssignments();
     const breaks = getBreaks();
+    const locations = getLocations();
     const container = document.getElementById('schedule-view');
     container.innerHTML = '';
 
@@ -278,28 +311,69 @@ function generateScheduleView() {
         return;
     }
 
-    const byBreak = {};
-    assignments.forEach(a => {
-        if (!byBreak[a.breakName]) byBreak[a.breakName] = [];
-        byBreak[a.breakName].push(a);
-    });
+    if (breaks.length === 0 || locations.length === 0) {
+        container.innerHTML = '<p class="placeholder">Dodaj przerwy i miejsca przed wyświetleniem harmonogramu.</p>';
+        return;
+    }
 
-    Object.keys(byBreak).forEach(breakName => {
-        const card = document.createElement('div');
-        card.className = 'schedule-card';
+    // Create wrapper for table
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'schedule-table-wrapper';
+
+    // Create HTML table
+    let html = '<table class="schedule-table">';
+    
+    // Header row - locations
+    html += '<thead><tr>';
+    html += '<th class="schedule-header-break">⏰ Przerwę / Miejsce</th>';
+    
+    locations.forEach(location => {
+        html += `<th class="schedule-header-location">${location.name}</th>`;
+    });
+    
+    html += '</tr></thead>';
+
+    // Body rows - breaks
+    html += '<tbody>';
+    
+    breaks.forEach(breakItem => {
+        html += '<tr>';
+        html += `<td class="schedule-break-time"><strong>${breakItem.name}</strong><br><small>${breakItem.startTime} - ${breakItem.endTime}</small></td>`;
         
-        let content = `<div class="schedule-card-header">⏰ ${breakName}</div>`;
-        content += '<div class="schedule-card-content">';
-        
-        byBreak[breakName].forEach(assignment => {
-            content += `<div>👨‍🏫 <strong>${assignment.teacherName}</strong> → 📍 ${assignment.locationName}</div>`;
+        locations.forEach(location => {
+            const assignment = assignments.find(a => 
+                a.breakId == breakItem.id && 
+                a.locationId == location.id
+            );
+            
+            if (assignment) {
+                html += `<td class="schedule-cell-filled">
+                    <div class="schedule-teacher">👨‍🏫 ${assignment.teacherName}</div>
+                </td>`;
+            } else {
+                html += `<td class="schedule-cell-empty"></td>`;
+            }
         });
         
-        content += '</div>';
-        card.innerHTML = content;
-        container.appendChild(card);
+        html += '</tr>';
     });
+    
+    html += '</tbody></table>';
+
+    tableWrapper.innerHTML = html;
+    container.appendChild(tableWrapper);
+
+    // Add export button
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'btn-secondary';
+    exportBtn.textContent = '🖨️ Drukuj harmonogram';
+    exportBtn.onclick = () => window.print();
+    container.appendChild(exportBtn);
 }
+
+// ============================================
+// EXPORT / IMPORT
+// ============================================
 
 function exportData() {
     const json = exportToJSON();
@@ -363,6 +437,10 @@ function clearAllData() {
     }
 }
 
+// ============================================
+// INSTALLATION PROMPT
+// ============================================
+
 let deferredPrompt;
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -380,6 +458,10 @@ function installApp() {
         });
     }
 }
+
+// ============================================
+// INITIAL RENDER
+// ============================================
 
 window.addEventListener('DOMContentLoaded', () => {
     renderTeachers();

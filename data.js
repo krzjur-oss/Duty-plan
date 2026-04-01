@@ -171,8 +171,6 @@ function deleteTeacher(id) {
     let teachers = getTeachers();
     teachers = teachers.filter(t => t.id != id);
     setTeachers(teachers);
-    
-    // Remove related assignments
     deleteTeacherAssignments(id);
 }
 
@@ -180,8 +178,6 @@ function deleteBreak(id) {
     let breaks = getBreaks();
     breaks = breaks.filter(b => b.id != id);
     setBreaks(breaks);
-    
-    // Remove related assignments
     deleteBreakAssignments(id);
 }
 
@@ -189,8 +185,6 @@ function deleteLocation(id) {
     let locations = getLocations();
     locations = locations.filter(l => l.id != id);
     setLocations(locations);
-    
-    // Remove related assignments
     deleteLocationAssignments(id);
 }
 
@@ -225,22 +219,31 @@ function deleteLocationAssignments(locationId) {
 function checkConflicts() {
     const assignments = getAssignments();
     const conflicts = [];
-
-    // Check if same teacher has multiple duties in same break
-    for (let i = 0; i < assignments.length; i++) {
-        for (let j = i + 1; j < assignments.length; j++) {
-            if (assignments[i].teacherId === assignments[j].teacherId &&
-                assignments[i].breakId === assignments[j].breakId &&
-                (assignments[i].day === assignments[j].day || !assignments[i].day || !assignments[j].day)) {
-                conflicts.push({
-                    type: 'TEACHER_DOUBLE_DUTY',
-                    message: `${assignments[i].teacherName} ma dwa dyżury w ${assignments[i].breakName}`,
-                    assignmentIds: [assignments[i].id, assignments[j].id]
-                });
-            }
+    const map = {};
+    assignments.forEach(a => {
+        const day = a.day || 'monday';
+        if (!map[day]) map[day] = {};
+        if (!map[day][a.breakId]) map[day][a.breakId] = {};
+        if (!map[day][a.breakId][a.teacherId]) {
+            map[day][a.breakId][a.teacherId] = [];
         }
-    }
+        map[day][a.breakId][a.teacherId].push(a);
+    });
 
+    Object.entries(map).forEach(([day, byBreak]) => {
+        Object.entries(byBreak).forEach(([breakId, byTeacher]) => {
+            Object.entries(byTeacher).forEach(([teacherId, assigns]) => {
+                if (assigns.length > 1) {
+                    const names = assigns.map(x => x.locationName).join(', ');
+                    conflicts.push({
+                        type: 'TEACHER_DOUBLE_DUTY',
+                        message: `Nauczyciel ${assigns[0].teacherName} ma dyżur w kilku miejscach (${names}) ${getDayName(day)}, przerwa: ${assigns[0].breakName}`,
+                        assignmentIds: assigns.map(a => a.id)
+                    });
+                }
+            });
+        });
+    });
     return conflicts;
 }
 
@@ -263,16 +266,13 @@ function exportToJSON() {
 function importFromJSON(jsonString) {
     try {
         const data = JSON.parse(jsonString);
-        
         if (!data.version || !data.teachers || !data.breaks || !data.locations || !data.assignments) {
             throw new Error('Nieprawidłowy format danych');
         }
-
         setTeachers(data.teachers);
         setBreaks(data.breaks);
         setLocations(data.locations);
         setAssignments(data.assignments);
-        
         return { success: true, message: 'Dane zaimportowane pomyślnie!' };
     } catch (error) {
         return { success: false, message: 'Import nie powiódł się: ' + error.message };
@@ -290,3 +290,16 @@ function clearAllDataStorage() {
 
 // Initialize on load
 initializeData();
+
+function getDayName(day) {
+    // helpers compatible with app.js
+    const DAYS = {
+        'monday': 'Poniedziałek',
+        'tuesday': 'Wtorek',
+        'wednesday': 'Środa',
+        'thursday': 'Czwartek',
+        'friday': 'Piątek',
+        'all': 'Cały tydzień'
+    };
+    return DAYS[day] || day;
+}

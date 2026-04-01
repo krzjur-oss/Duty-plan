@@ -5,14 +5,12 @@
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const tabName = btn.dataset.tab;
-        
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
         document.querySelectorAll('.tab-btn').forEach(b => {
             b.classList.remove('active');
         });
-
         document.getElementById(tabName).classList.add('active');
         btn.classList.add('active');
     });
@@ -36,6 +34,27 @@ darkModeToggle.addEventListener('click', () => {
     localStorage.setItem('darkMode', isDark);
     darkModeToggle.textContent = isDark ? '☀️' : '🌙';
 });
+
+// ============================================
+// DAYS MAP & HELPERS
+// ============================================
+
+const DAYS = {
+    'monday': 'Poniedziałek',
+    'tuesday': 'Wtorek',
+    'wednesday': 'Środa',
+    'thursday': 'Czwartek',
+    'friday': 'Piątek',
+    'all': 'Cały tydzień'
+};
+
+function getDayName(day) {
+    return DAYS[day] || day;
+}
+function getSelectedDay() {
+    const select = document.getElementById('schedule-week-select');
+    return select ? select.value : 'monday';
+}
 
 // ============================================
 // TEACHERS MANAGEMENT
@@ -241,8 +260,45 @@ function deleteAssignmentUI(id) {
 }
 
 // ============================================
-// CONFLICT DETECTION
+// POPRAWNA DETEKCJA KONFLIKTÓW
 // ============================================
+
+function checkConflicts() {
+    const assignments = getAssignments();
+    const conflicts = [];
+
+    // day > breakId > teacherId => tablica assignments
+    // Jeśli w tej samej przerwie danego dnia nauczyciel ma >1 przydział, to konflikt!
+    const map = {};
+    assignments.forEach(a => {
+        const day = a.day || 'monday';
+        if (!map[day]) map[day] = {};
+        if (!map[day][a.breakId]) map[day][a.breakId] = {};
+        if (!map[day][a.breakId][a.teacherId]) {
+            map[day][a.breakId][a.teacherId] = [];
+        }
+        map[day][a.breakId][a.teacherId].push(a);
+    });
+
+    Object.entries(map).forEach(([day, byBreak]) => {
+        Object.entries(byBreak).forEach(([breakId, byTeacher]) => {
+            Object.entries(byTeacher).forEach(([teacherId, assigns]) => {
+                if (assigns.length > 1) {
+                    const names = assigns.map(x => x.locationName).join(', ');
+                    conflicts.push({
+                        type: 'TEACHER_DOUBLE_DUTY',
+                        message: `Nauczyciel ${assigns[0].teacherName} ma dyżur w kilku miejscach (${names}) ${getDayName(day)}, przerwa: ${assigns[0].breakName}`,
+                        assignmentIds: assigns.map(a => a.id)
+                    });
+                }
+            });
+        });
+    });
+
+    return conflicts;
+}
+
+// --------------------------------------------
 
 function checkAndDisplayConflicts() {
     const conflicts = checkConflicts();
@@ -264,29 +320,7 @@ function checkAndDisplayConflicts() {
 let draggedData = null;
 
 // ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-const DAYS = {
-    'monday': 'Poniedziałek',
-    'tuesday': 'Wtorek',
-    'wednesday': 'Środa',
-    'thursday': 'Czwartek',
-    'friday': 'Piątek',
-    'all': 'Cały tydzień'
-};
-
-function getDayName(day) {
-    return DAYS[day] || day;
-}
-
-function getSelectedDay() {
-    const select = document.getElementById('schedule-week-select');
-    return select ? select.value : 'monday';
-}
-
-// ============================================
-// SCHEDULE VIEW - INTERACTIVE GRID TABLE
+// SCHEDULE VIEW — TABLE + CAPTION HEADER
 // ============================================
 
 function generateScheduleView() {
@@ -303,25 +337,20 @@ function generateScheduleView() {
         return;
     }
 
-    // Filter assignments by selected day
     const filteredAssignments = assignments.filter(a => {
         if (selectedDay === 'all') return true;
         return a.day === selectedDay || !a.day;
     });
 
-    // Determine if showing all days or single day
     const isAllDays = selectedDay === 'all';
 
     if (isAllDays) {
-        // Show tables for each day
         Object.keys(DAYS).forEach(day => {
             if (day === 'all') return;
-            
             const dayAssignments = assignments.filter(a => a.day === day || !a.day);
             renderSingleDayTable(container, day, dayAssignments, breaks, locations);
         });
     } else {
-        // Show single day table
         renderSingleDayTable(container, selectedDay, filteredAssignments, breaks, locations);
     }
 
@@ -336,41 +365,30 @@ function generateScheduleView() {
 }
 
 function renderSingleDayTable(container, day, assignments, breaks, locations) {
-    // Create wrapper for table
-    const tableWrapper = document.createElement('div');
-    tableWrapper.className = 'schedule-table-wrapper';
+    const outer = document.createElement('div');
+    outer.className = 'schedule-table-wrapper';
 
-    // Create HTML table
-    let html = `<div class="schedule-day-header">📅 ${getDayName(day)}</div>`;
-    html += '<table class="schedule-table">';
-    
-    // Header row - locations
-    html += '<thead><tr>';
-    html += '<th class="schedule-header-break">⏰ Przerwę / Miejsce</th>';
-    
+    // <<< KORZYSTAMY Z CAPTION !!!
+    let html = `<table class="schedule-table">
+        <caption class="schedule-day-header">📅 ${getDayName(day)}</caption>
+        <thead><tr><th class="schedule-header-break">⏰ Przerwę / Miejsce</th>`;
+
     locations.forEach(location => {
         html += `<th class="schedule-header-location">${location.name}</th>`;
     });
-    
-    html += '</tr></thead>';
 
-    // Body rows - breaks
-    html += '<tbody>';
-    
+    html += '</tr></thead><tbody>';
     breaks.forEach(breakItem => {
         html += '<tr>';
         html += `<td class="schedule-break-time"><strong>${breakItem.name}</strong><br><small>${breakItem.startTime} - ${breakItem.endTime}</small></td>`;
-        
         locations.forEach(location => {
-            const assignment = assignments.find(a => 
-                a.breakId == breakItem.id && 
+            const assignment = assignments.find(a =>
+                a.breakId == breakItem.id &&
                 a.locationId == location.id &&
                 (a.day === day || !a.day)
             );
-            
             if (assignment) {
-                html += `<td class="schedule-cell-filled" 
-                    draggable="true"
+                html += `<td class="schedule-cell-filled" draggable="true"
                     data-assignment-id="${assignment.id}"
                     data-break-id="${breakItem.id}"
                     data-location-id="${location.id}"
@@ -385,7 +403,7 @@ function renderSingleDayTable(container, day, assignments, breaks, locations) {
                     <small class="edit-hint">Przeciągnij lub kliknij</small>
                 </td>`;
             } else {
-                html += `<td class="schedule-cell-empty" 
+                html += `<td class="schedule-cell-empty"
                     ondragover="onDragOver(event)"
                     ondrop="onDrop(event)"
                     data-break-id="${breakItem.id}"
@@ -396,14 +414,11 @@ function renderSingleDayTable(container, day, assignments, breaks, locations) {
                 </td>`;
             }
         });
-        
         html += '</tr>';
     });
-    
     html += '</tbody></table>';
-
-    tableWrapper.innerHTML = html;
-    container.appendChild(tableWrapper);
+    outer.innerHTML = html;
+    container.appendChild(outer);
 }
 
 // ============================================
@@ -420,7 +435,6 @@ function onDragStart(event) {
         day: cell.dataset.day,
         teacherName: cell.querySelector('.schedule-teacher').textContent.trim()
     };
-    
     cell.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', draggedData.teacherName);
@@ -429,7 +443,6 @@ function onDragStart(event) {
 function onDragOver(event) {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
-    
     const cell = event.target.closest('td');
     if (cell && !cell.classList.contains('schedule-break-time')) {
         cell.classList.add('drag-over');
@@ -441,48 +454,38 @@ function onDragEnd(event) {
     if (cell) {
         cell.classList.remove('dragging');
     }
-    
     document.querySelectorAll('.drag-over').forEach(el => {
         el.classList.remove('drag-over');
     });
-    
     draggedData = null;
 }
 
 function onDrop(event) {
     event.preventDefault();
     event.stopPropagation();
-    
     const targetCell = event.target.closest('td');
-    
-    if (!targetCell || targetCell.classList.contains('schedule-break-time')) {
-        return;
-    }
-    
-    if (!draggedData) {
-        return;
-    }
+    if (!targetCell || targetCell.classList.contains('schedule-break-time')) return;
+    if (!draggedData) return;
 
     const targetBreakId = parseInt(targetCell.dataset.breakId);
     const targetLocationId = parseInt(targetCell.dataset.locationId);
     const targetDay = targetCell.dataset.day;
-    
-    // Nie przeciągamy na to samo miejsce
-    if (draggedData.breakId == targetBreakId && 
-        draggedData.locationId == targetLocationId && 
-        draggedData.day === targetDay) {
+
+    if (
+        draggedData.breakId == targetBreakId &&
+        draggedData.locationId == targetLocationId &&
+        draggedData.day === targetDay
+    ) {
         targetCell.classList.remove('drag-over');
         return;
     }
 
-    // Usuń stare przypisanie
     if (draggedData.assignmentId) {
         deleteAssignment(draggedData.assignmentId);
     }
 
-    // Sprawdź konflikt
-    const existingAssignment = getAssignments().find(a => 
-        a.breakId == targetBreakId && 
+    const existingAssignment = getAssignments().find(a =>
+        a.breakId == targetBreakId &&
         a.locationId == targetLocationId &&
         (a.day === targetDay || !a.day)
     );
@@ -493,11 +496,9 @@ function onDrop(event) {
             addAssignmentDataWithDay(draggedData.teacherId, targetBreakId, targetLocationId, targetDay);
             addAssignmentDataWithDay(existingAssignment.teacherId, draggedData.breakId, draggedData.locationId, draggedData.day);
         } else {
-            // Przywróć stare przypisanie
             addAssignmentDataWithDay(draggedData.teacherId, draggedData.breakId, draggedData.locationId, draggedData.day);
         }
     } else {
-        // Po prostu przenieś
         addAssignmentDataWithDay(draggedData.teacherId, targetBreakId, targetLocationId, targetDay);
     }
 
@@ -507,7 +508,7 @@ function onDrop(event) {
 }
 
 // ============================================
-// MODAL FOR EDITING ASSIGNMENTS
+// MODAL FOR EDITING ASSIGNMENTS (z sortowaniem nauczycieli)
 // ============================================
 
 function openEditModal(breakId, locationId, currentTeacher, assignmentId, day = 'monday') {
@@ -637,7 +638,6 @@ function showStatus(type, message) {
     const statusDiv = document.getElementById('data-status');
     statusDiv.textContent = message;
     statusDiv.className = `status-message ${type}`;
-    
     setTimeout(() => {
         statusDiv.className = 'status-message';
     }, 3000);
